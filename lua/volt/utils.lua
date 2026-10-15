@@ -38,21 +38,12 @@ M.cycle_clickables = function(buf, step)
 end
 
 M.close = function(val)
-  local event_bufs = require("volt.events").bufs
-
   for _, buf in ipairs(val.bufs) do
-    local valid_buf = api.nvim_buf_is_valid(buf)
+    state[buf] = nil
+    require("volt.events").remove(buf)
 
-    if valid_buf then
+    if api.nvim_buf_is_valid(buf) then
       api.nvim_buf_delete(buf, { force = true })
-      state[buf] = nil
-    end
-
-    --- remove buf from event_bufs table
-    for i, bufid in ipairs(event_bufs) do
-      if bufid == buf then
-        table.remove(event_bufs, i)
-      end
     end
 
     if val.close_func then

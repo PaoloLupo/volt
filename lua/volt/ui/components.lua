@@ -113,4 +113,48 @@ M.hpad = function(line, w)
   return line
 end
 
+--- @class TrackOptions
+--- @field w integer Width in cells.
+--- @field val number Where the thumb is, from 0 to 1.
+--- @field on_pick fun(fraction: number) Called with where a click lands, from 0 to 1.
+--- @field char? string The track's character (default "━").
+--- @field thumb? string The thumb (default "●"); "" for none.
+--- @field hlon? string Highlight before the thumb.
+--- @field hloff? string Highlight after it.
+--- @field hlthumb? string Highlight of the thumb.
+
+--- A horizontal track you click to pick a point along it, unlike `slider`
+--- with the mouse's column rather than the cursor's: a scrubber, a volume.
+--- @param o TrackOptions
+--- @return table[] One line.
+M.track = function(o)
+  local char = o.char or "━"
+  local thumb = o.thumb or "●"
+  local thumb_w = vim.api.nvim_strwidth(thumb)
+  local val = math.max(0, math.min(1, o.val or 0))
+  local before = math.min(math.floor(val * o.w + 0.5), o.w - thumb_w)
+  local after = o.w - before - thumb_w
+
+  local function pick(offset)
+    return {
+      click = function(ctx)
+        local cell = offset + (ctx.col - ctx.col_start)
+        o.on_pick(math.max(0, math.min(1, (cell + 0.5) / o.w)))
+      end,
+    }
+  end
+
+  local line = {}
+  if before > 0 then
+    table.insert(line, { string.rep(char, before), o.hlon or "ExBlue", pick(0) })
+  end
+  if thumb_w > 0 then
+    table.insert(line, { thumb, o.hlthumb or o.hlon or "ExBlue", pick(before) })
+  end
+  if after > 0 then
+    table.insert(line, { string.rep(char, after), o.hloff or "LineNr", pick(before + thumb_w) })
+  end
+  return line
+end
+
 return M

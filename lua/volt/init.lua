@@ -42,6 +42,11 @@ end
 M.redraw = function(buf, names)
   local v = state[buf]
 
+  -- A buffer closed while an update was on its way.
+  if not v then
+    return
+  end
+
   if names == "all" then
     for _, section in ipairs(v.layout) do
       draw(buf, section)
@@ -72,9 +77,11 @@ end
 M.mappings = function(val)
   for _, buf in ipairs(val.bufs) do
     -- cycle bufs
-    map("n", "<C-t>", function()
-      utils.cycle_bufs(val.bufs)
-    end, { buffer = buf })
+    if #val.bufs > 1 then
+      map("n", "<C-t>", function()
+        utils.cycle_bufs(val.bufs)
+      end, { buffer = buf })
+    end
 
     -- close
     map("n", "q", function()
@@ -115,9 +122,7 @@ M.run = function(buf, opts)
 
   api.nvim_set_option_value("modifiable", false, { buf = buf })
 
-  if not vim.g.extmarks_events then
-    require("volt.events").enable()
-  end
+  require("volt.events").enable()
 end
 
 M.toggle_func = function(open_func, ui_state)

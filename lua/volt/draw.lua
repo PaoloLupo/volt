@@ -1,51 +1,44 @@
 local api = vim.api
-local set_extmark = api.nvim_buf_set_extmark
 local state = require "volt.state"
 
+--- Draws a section of a volt buffer as extmarks, and records where its
+--- clickables and hoverables are. A cell is `{ text, hl?, actions? }`;
+--- columns are display columns, and each range is end-exclusive.
 return function(buf, section)
   local v = state[buf]
+  if not (v and section and api.nvim_buf_is_valid(buf)) then
+    return
+  end
   local section_lines = section.lines(buf)
   local xpad = section.col_start or v.xpad or 0
 
-  for line_i, val in ipairs(section_lines) do
+  for line_i, line in ipairs(section_lines) do
     local row = line_i + section.row
     local col = xpad
+    local marks = {}
 
     v.clickables[row] = {}
     v.hoverables[row] = {}
 
-    for _, mark in ipairs(val) do
-      local strlen = vim.fn.strwidth(mark[1])
-      col = col + strlen
+    for _, mark in ipairs(line) do
+      local width = api.nvim_strwidth(mark[1])
+      local actions = mark[3]
 
-      if mark[3] then
-        local virt = { col_start = col - strlen, col_end = col, actions = mark[3] }
+      if actions then
+        local item = { col_start = col, col_end = col + width, actions = actions }
+        table.insert(v.clickables[row], item)
 
-        if strlen == 1 and #mark[1] == 1 then
-          virt.col_end = virt.col_start
-        end
-
-        table.insert(v.clickables[row], virt)
-
-        if type(virt.actions) == "table" then
-          virt.ui_type = virt.actions.ui_type
-          virt.hover = virt.actions.hover
-          table.insert(v.hoverables[row], virt)
+        if type(actions) == "table" then
+          item.ui_type = actions.ui_type
+          item.hover = actions.hover
+          table.insert(v.hoverables[row], item)
         end
       end
-    end
-  end
 
-  -- remove 3rd item from virt_text table cuz its a function
-  for _, line in ipairs(section_lines) do
-    for _, marks in ipairs(line) do
-      table.remove(marks, 3)
+      col = col + width
+      table.insert(marks, { mark[1], mark[2] })
     end
-  end
 
-  for line, marks in ipairs(section_lines) do
-    local row = line + section.row
-    local opts = { virt_text_win_col = xpad, virt_text = marks, id = row }
-    set_extmark(buf, v.ns, row - 1, 0, opts)
+    api.nvim_buf_set_extmark(buf, v.ns, row - 1, 0, { virt_text_win_col = xpad, virt_text = marks, id = row })
   end
 end
